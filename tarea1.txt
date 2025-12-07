@@ -1,0 +1,64 @@
+Query 0
+Objetivo: Para el año académico 2044, obtener el índice académico promedio de la carrera Ingeniería Electrónica.
+
+1.  T1 = ( Estudiante, Historial )
+    (Unimos estudiantes con sus notas)
+2.  T2 = T1 donde ( anio = 2044 AND carrera = "Ing. Electronica" )
+    (Filtramos por el año y la carrera)
+3.  RESULTADO = T2 calculando(nota)
+
+---
+
+Query 1
+Objetivo: La cantidad de estudiantes graduados de Computación y Electrónica para el año académico 2050.
+
+1.  T1 = en Estudiante donde ( estatus = "Graduado" )
+2.  T2 = en T1 donde ( carrera = "Computacion" OR carrera = "Ing. Electronica" )
+    (Nos quedamos solo con las carreras pedidas)
+3.  T3 = ( T2, Historial )
+4.  T4 = en T3 donde ( anio = 2050 )
+    (Asumiendo que el año en el historial indica la fecha del registro o graduación)
+5.  RESULTADO = T4 calculando (carnet)
+
+---
+
+Query 2
+Objetivo: Las asignaturas del departamento de computación.
+
+1.  T1 = Asignatura donde ( departamento = "Computacion" )
+2.  RESULTADO = T1 ( codigo, nombre, uc )
+
+---
+
+Query 3
+Objetivo: Los estudiantes activos que cursaron Matemáticas VII y pasaron Física I con nota mayor o igual a 4.
+
+Este se resuelve mejor buscando los grupos de carnets por separado y haciendo intersección:
+2.  Materia_Mate7 = Asignatura donde nombre="Matematicas VII"
+3.  Est_Vieron_Mate7 = ( Materia_Mate7, Historial ) tomamos carnet
+4.  Materia_Fisica1 = Asignatura donde nombre="Fisica I"
+5.  Est_Pasaron_Fisica = ((Materia_Fisica1, Historial) donde nota >= 4 ) tomamos carnet
+6.  RESULTADO = Est_Activos Est_Vieron_Mate7 Est_Pasaron_Fisica
+
+
+1.  Est_Activos = ( Estudiante donde estatus="Activo" ) tomamos carnet
+
+
+Query 4
+Objetivo: La cantidad de UC aprobadas por estudiantes activos de Ing. Electrónica hasta 2046 que tomaron Matemáticas IV.
+
+1.  Paso A: Identificar a los estudiantes (Filtro demográfico)
+    Est_Elec_Activos = Estudiante donde ( carrera="Ing. Electronica" AND estatus="Activo" )
+
+2.  Paso B: Verificar que vieron Mate IV
+    Asig_Mate4 = Asignatura donde nombre="Matematicas IV"
+    Est_Con_Mate4 = ( Est_Elec_Activos, Historial, Asig_Mate4 ) tomamos carnet
+    (Ahora tenemos la lista de carnets que cumplen el perfil)
+
+3.  Paso C: Buscar sus materias aprobadas hasta 2046
+    Historial_Valido = Historial donde ( anio <= 2046 AND nota >= 10 )
+    (Nota: uso >= 10 asumiendo escala de 20, ajusta a 4 si es escala de 5)
+
+4.  Paso D: Unir y Sumar
+    Tabla_Completa = ( Est_Con_Mate4, Historial_Valido, Asignatura )
+    RESULTADO = Tabla_Completa por carnet calculando *SUMA*(uc)
