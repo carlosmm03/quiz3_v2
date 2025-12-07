@@ -1,170 +1,175 @@
 #include "Query.h"
-#include "Database.h"
+#include "Student.h"
+#include "Subject.h"
+#include "Grade.h"
+#include "Department.h"
+#include "Coordination.h"
+#include "Deanship.h"
 
-#include <cstdio>
-#include <cstdlib>
 #include <iostream>
 #include <algorithm>
-#include <vector>
-#include <string>
-#include <iomanip>
 #include <set>
-#include <map>
+#include <tuple>
 
-using namespace std;
+using std::string;
+using std::vector;
+using std::tuple;
+using std::make_tuple;
 
-// --- Helper Functions ---
 
-Student GetStudent(const string& studentId) {
-    auto it = find_if(students.begin(), students.end(), 
-        [&](const Student& s) { return s.studentId == studentId; });
-    if (it != students.end()) return *it;
-    return Student();
-}
-
-Subject GetSubject(const string& code) {
-    auto it = find_if(subjects.begin(), subjects.end(), 
-        [&](const Subject& s) { return s.code == code; });
-    if (it != subjects.end()) return *it;
-    return Subject();
-}
-
-// ---------------------------------------------------------
-// QUERY 0
-// ---------------------------------------------------------
-int Query::q0() {
-    cout << "=== Query 0: Average Elec. Eng. (2044) ===" << endl;
+Student GetStudent(string studentIdStr) {
+    const auto& table = Student::table();
+    auto it = std::find_if(table.begin(), table.end(),
+        [&](const Student& s){ return s.id().str() == studentIdStr; });
     
-    float totalGrade = 0.0f;
-    int count = 0;
+    if (it != table.end()) return *it;
+    return Student("00-00000", "Unknown", "0000");
+}
 
-    for (const auto& r : records) {
-        if (r.year == 2044) {
-            Student s = GetStudent(r.studentId);
-            if (s.major == "Ingenieria Electronica") {
-                totalGrade += r.grade;
+Subject GetSubject(string codeStr) {
+    const auto& table = Subject::table();
+    auto it = std::find_if(table.begin(), table.end(),
+        [&](Subject s){ return s.code().str() == codeStr; });
+    
+    if (it != table.end()) return *it;
+    return Subject("0000", "0000", "Unknown", 0);
+}
+
+float Query::q0() {
+    float totalGradeSum = 0.0f;
+    int count = 0;
+    const auto& grades = Grade::table();
+
+    for (const auto& g : grades) {
+        if (g.year() == 2044) {
+            Student student = GetStudent(g.studentId().str());
+            
+            if (student.majorCode().str() == "0600") {
+                totalGradeSum += g.score();
                 count++;
             }
         }
     }
-
-    float average = (count > 0) ? (totalGrade / count) : 0.0f;
-
-    cout << "Average: " << average << endl;
-    cout << "-------------------------------------------------" << endl;
-
-    return EXIT_SUCCESS;
+    return (count > 0) ? (totalGradeSum / count) : 0.0f;
 }
 
-// ---------------------------------------------------------
-// QUERY 1
-// ---------------------------------------------------------
+
 int Query::q1() {
-    cout << "=== Query 1: Comp/Elec Graduates (2050) ===" << endl;
+    int count = 0;
+    std::set<string> processedIds;
+    const auto& grades = Grade::table();
 
-    int graduateCount = 0;
-    set<string> processedStudentIds;
+    for (const auto& g : grades) {
+        if (g.year() == 2050) {
+            string studentId = g.studentId().str();
+            
+            if (processedIds.count(studentId)) continue;
 
-    for (const auto& r : records) {
-        if (r.year == 2050) {
-            if (processedStudentIds.find(r.studentId) == processedStudentIds.end()) {
-                Student s = GetStudent(r.studentId);
-                bool majorOk = (s.major == "Computacion" || s.major == "Ingenieria Electronica");
-                
-                if (s.status == "Graduado" && majorOk) {
-                    graduateCount++;
-                    processedStudentIds.insert(r.studentId);
-                }
+            Student student = GetStudent(studentId);
+            string majorCode = student.majorCode().str();
+            
+            bool isTargetMajor = (majorCode == "0800" || majorCode == "0600");
+
+            if (student.isGraduate() && isTargetMajor) {
+                count++;
+                processedIds.insert(studentId);
             }
         }
     }
-
-    cout << "Graduate Count: " << graduateCount << endl;
-    cout << "-------------------------------------------" << endl;
-
-    return EXIT_SUCCESS;
+    return count;
 }
 
-// ---------------------------------------------------------
-// QUERY 2
-// ---------------------------------------------------------
-int Query::q2() {
-    cout << "=== Query 2: Computer Science Subjects ===" << endl;
-    cout << left << setw(10) << "CODE" << setw(30) << "NAME" << setw(5) << "CREDITS" << endl;
-
-    for (const auto& s : subjects) {
-        if (s.department == "Computacion") {
-            cout << left << setw(10) << s.code 
-                 << setw(30) << s.name 
-                 << setw(5) << s.credits << endl;
+vector<Subject> Query::q2() {
+    vector<Subject> result;
+    
+    string compSciDeptId = "";
+    const auto& departments = Department::table();
+    
+    for (auto d : departments) {
+        if (d.description().str().find("Computacion") != string::npos) {
+            compSciDeptId = d.key().str();
+            break;
         }
     }
-    cout << "----------------------------------------------" << endl;
-    return EXIT_SUCCESS;
+
+    if (!compSciDeptId.empty()) {
+        const auto& subjects = Subject::table();
+        for (auto s : subjects) {
+            if (s.departmentCode().str() == compSciDeptId) {
+                result.push_back(s);
+            }
+        }
+    }
+    
+    return result;
 }
 
-// ---------------------------------------------------------
-// QUERY 3
-// ---------------------------------------------------------
-int Query::q3() {
-    cout << "=== Query 3: Active Students (Math VII + Passed Physics I) ===" << endl;
-    cout << left << setw(15) << "STUDENT_ID" << setw(30) << "MAJOR" << endl;
 
-    for (const auto& s : students) {
-        if (s.status != "Activo") continue;
+vector<Student> Query::q3() {
+    vector<Student> result;
+    const auto& students = Student::table();
+    const auto& grades = Grade::table();
+
+    for (const auto& student : students) {
+        if (!student.isActive()) continue;
 
         bool tookMath7 = false;
         bool passedPhysics1 = false;
 
-        for (const auto& r : records) {
-            if (r.studentId == s.studentId) {
-                Subject subj = GetSubject(r.subjectCode);
+        for (const auto& grade : grades) {
+            if (grade.studentId().str() == student.id().str()) {
                 
-                if (subj.name == "Matematicas VII") tookMath7 = true;
+                Subject subject = GetSubject(grade.subjectCode().str());
+                string subjectName = subject.description().str();
+
+                if (subjectName == "Matematicas VII") {
+                    tookMath7 = true;
+                }
                 
-                if (subj.name == "Fisica I" && r.grade >= 4.0) passedPhysics1 = true;
+                if (subjectName == "Fisica I" && grade.score() >= 4) {
+                    passedPhysics1 = true;
+                }
             }
         }
 
         if (tookMath7 && passedPhysics1) {
-            cout << left << setw(15) << s.studentId << setw(30) << s.major << endl;
+            result.push_back(student);
         }
     }
-    cout << "----------------------------------------------------------" << endl;
-    return EXIT_SUCCESS;
+    return result;
 }
 
-// ---------------------------------------------------------
-// QUERY 4
-// ---------------------------------------------------------
-int Query::q4() {
-    cout << "=== Query 4: Approved Credits (Elec. Eng. up to 2046) ===" << endl;
-    cout << left << setw(15) << "STUDENT_ID" << setw(10) << "TOTAL CREDITS" << endl;
 
-    for (const auto& s : students) {
-        if (s.major != "Ingenieria Electronica" || s.status != "Activo") continue;
+vector<tuple<string, int>> Query::q4() {
+    vector<tuple<string, int>> result;
+    const auto& students = Student::table();
+    const auto& grades = Grade::table();
+
+    for (const auto& student : students) {
+        if (student.majorCode().str() != "0600" || !student.isActive()) continue;
 
         bool tookMath4 = false;
-        int totalCredits = 0;
+        int accumulatedCredits = 0;
 
-        for (const auto& r : records) {
-            if (r.studentId == s.studentId) {
-                Subject subj = GetSubject(r.subjectCode);
+        for (const auto& grade : grades) {
+            if (grade.studentId().str() == student.id().str()) {
                 
-                if (subj.name == "Matematicas IV") {
+                Subject subject = GetSubject(grade.subjectCode().str());
+                string subjectName = subject.description().str();
+
+                if (subjectName == "Matematicas IV") {
                     tookMath4 = true;
                 }
 
-                if (r.year <= 2046 && r.grade >= 10.0) { 
-                    totalCredits += subj.credits;
+                if (grade.year() <= 2046 && grade.score() >= 10) {
+                    accumulatedCredits += subject.credits();
                 }
             }
         }
 
         if (tookMath4) {
-            cout << left << setw(15) << s.studentId << setw(10) << totalCredits << endl;
+            result.push_back(make_tuple(student.id().str(), accumulatedCredits));
         }
     }
-    cout << "----------------------------------------------------" << endl;
-    return EXIT_SUCCESS;
+    return result;
 }
