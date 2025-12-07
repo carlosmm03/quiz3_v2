@@ -1,40 +1,20 @@
-#ifndef DATABASE_H
-#define DATABASE_H
+#pragma once
 
-#include <string>
 #include <vector>
-#include <iostream>
+#include <tuple>
+#include <string>
 
-// --- Struct Definitions ---
+#include "Subject.h"
+#include "Student.h"
 
-struct Student {
-    std::string studentId;
-    std::string major;
-    std::string status;
-    
-    void print() const {
-        std::cout << "Student: " << studentId << " (" << major << ") - " << status << std::endl;
-    }
+struct Query {
+    static float q0();
+
+    static int q1();
+
+    static std::vector<Subject> q2();
+
+    static std::vector<Student> q3();
+
+    static std::vector<std::tuple<std::string, int>> q4();
 };
-
-struct Subject {
-    std::string code;
-    std::string name;
-    std::string department;
-    int credits;
-};
-
-struct Record {
-    std::string studentId;
-    std::string subjectCode;
-    int year;
-    float grade;
-};
-
-// --- Global "Table" Declarations ---
-
-extern std::vector<Student> students;
-extern std::vector<Subject> subjects;
-extern std::vector<Record> records; 
-
-#endif // DATABASE_H
